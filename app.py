@@ -70,8 +70,8 @@ st.sidebar.success("🤖 **Core Engine:** XGBoost MTF")
 
 # 자동 새로고침 및 기간 설정
 auto_refresh = st.sidebar.checkbox("⚡ **1분 자동 새로고침 켜기**", value=True)
-# yfinance 15m 데이터 최대 제공 기간인 60일(여유분 2일 제외 58일)로 확장
-chart_days = st.sidebar.slider("📊 차트 표시 기간 (일)", min_value=1, max_value=58, value=2, help="차트에 표시할 과거 예측 기록의 기간을 선택하세요. (최대 58일)")
+# yfinance 15m 데이터 최대 제공 기간인 60일(여유분 2일 제외 58일)로 확장. 기본값을 1일로 변경 (모바일 최적화)
+chart_days = st.sidebar.slider("📊 차트 표시 기간 (일)", min_value=1, max_value=58, value=1, help="차트에 표시할 과거 예측 기록의 기간을 선택하세요. (최대 58일)")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 💡 Signal Guide")
@@ -164,11 +164,18 @@ def get_live_chart(days_to_show):
                              mode='markers', marker=dict(symbol='triangle-down', size=16, color='#F6465D', line=dict(width=1.5, color='white')),
                              name='🔴 Pred Down'))
 
+    # 모바일 최적화: 레이아웃 여백 최소화, 높이 축소, 폰트 크기 조절
+    time_str = recent_eval.index[-1].strftime("%Y-%m-%d %H:%M")
     fig.update_layout(
-        title=dict(text=f'<b>TH Chart Live Tracking</b> (Updated: {recent_eval.index[-1]})', font=dict(size=20, color='#EAECEF')),
-        yaxis_title='BTC Price (USD)', xaxis_title='Time (Asia/Seoul)',
-        template='plotly_dark', xaxis_rangeslider_visible=False, height=650,
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        title=dict(text=f'<b>TH Chart Live Tracking</b><br><span style="font-size:12px;color:gray;">Updated: {time_str}</span>', font=dict(size=16, color='#EAECEF')),
+        yaxis_title='BTC Price (USD)', 
+        xaxis_title='', # 공간 절약을 위해 x축 라벨 제거
+        template='plotly_dark', 
+        xaxis_rangeslider_visible=False, 
+        height=450, # 650에서 450으로 축소하여 뚱뚱한 느낌 제거
+        margin=dict(l=10, r=10, t=55, b=10), # 좌우상하 여백 최소화
+        paper_bgcolor='rgba(0,0,0,0)', 
+        plot_bgcolor='rgba(0,0,0,0)',
         uirevision='live_chart' # 확대/축소(Zoom/Pan) 상태 유지 마법의 옵션
     )
 
