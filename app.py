@@ -152,7 +152,7 @@ def get_live_chart(days_to_show):
                     open=recent_eval['Open'], high=recent_eval['High'],
                     low=recent_eval['Low'], close=recent_eval['Close'],
                     increasing_line_color='#0ECB81', decreasing_line_color='#F6465D',
-                    name='BTC/USD')])
+                    name='BTC/USD', showlegend=False)]) # 공간 절약을 위해 기본 범례 숨김
 
     pred_up = recent_eval[recent_eval['Pred'] == 2]
     pred_down = recent_eval[recent_eval['Pred'] == 0]
@@ -164,7 +164,7 @@ def get_live_chart(days_to_show):
                              mode='markers', marker=dict(symbol='triangle-down', size=16, color='#F6465D', line=dict(width=1.5, color='white')),
                              name='🔴 Pred Down'))
 
-    # 모바일 최적화: 레이아웃 여백 최소화, 높이 축소, 폰트 크기 조절
+    # 모바일 최적화: 레이아웃 여백 최소화, 높이 축소, 범례 가로 배치
     time_str = recent_eval.index[-1].strftime("%Y-%m-%d %H:%M")
     fig.update_layout(
         title=dict(text=f'<b>TH Chart Live Tracking</b><br><span style="font-size:12px;color:gray;">Updated: {time_str}</span>', font=dict(size=16, color='#EAECEF')),
@@ -172,11 +172,18 @@ def get_live_chart(days_to_show):
         xaxis_title='', # 공간 절약을 위해 x축 라벨 제거
         template='plotly_dark', 
         xaxis_rangeslider_visible=False, 
-        height=450, # 650에서 450으로 축소하여 뚱뚱한 느낌 제거
-        margin=dict(l=10, r=10, t=55, b=10), # 좌우상하 여백 최소화
+        height=450, # 모바일에 맞는 높이 유지
+        margin=dict(l=10, r=10, t=55, b=45), # 좌우 여백 최소화, 아래 여백 확보
         paper_bgcolor='rgba(0,0,0,0)', 
         plot_bgcolor='rgba(0,0,0,0)',
-        uirevision='live_chart' # 확대/축소(Zoom/Pan) 상태 유지 마법의 옵션
+        uirevision='live_chart',
+        legend=dict( # 범례를 차트 가로 하단으로 이동하여 폭 확보
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5
+        )
     )
 
     latest_preds = X_live['Pred'].iloc[-5:].values
