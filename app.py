@@ -51,6 +51,11 @@ st.markdown("""
         padding: 15px;
         border: 1px solid #2B3139;
     }
+    /* 알림 박스 커스텀 */
+    .stAlert {
+        background-color: #181a20 !important;
+        border: 1px solid #2B3139 !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -101,6 +106,14 @@ def get_live_chart(days_to_show):
     btc_df = btc_df[['Open', 'High', 'Low', 'Close', 'Volume']]
     btc_df.index = btc_df.index.tz_convert('Asia/Seoul').tz_localize(None)
 
+    # --- ATR(Average True Range) 계산 로직 추가 --- #
+    btc_df['Prev_Close'] = btc_df['Close'].shift(1)
+    tr1 = btc_df['High'] - btc_df['Low']
+    tr2 = (btc_df['High'] - btc_df['Prev_Close']).abs()
+    tr3 = (btc_df['Low'] - btc_df['Prev_Close']).abs()
+    btc_df['TR'] = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    btc_df['ATR_14'] = btc_df['TR'].rolling(window=14).mean()
+
     btc_df['Returns'] = btc_df['Close'].pct_change()
     btc_df['SMA_7'] = btc_df['Close'].rolling(window=7).mean()
 
@@ -128,7 +141,7 @@ def get_live_chart(days_to_show):
     if not os.path.exists(model_path):
         model_path = 'xgboost_btc_15m_3class_strict.pkl'
     model_xgb = joblib.load(model_path)
-    
+
     X_live['Pred'] = model_xgb.predict(X_live[features])
 
     data_points = min(len(X_live), days_to_show * 96) # 선택한 일수만큼 캔들 표시
@@ -161,10 +174,11 @@ def get_live_chart(days_to_show):
 
     latest_preds = X_live['Pred'].iloc[-5:].values
     latest_close = recent_eval['Close'].iloc[-1]
-    return fig, latest_preds, X_live.index[-1], latest_close
+    latest_atr = btc_df['ATR_14'].iloc[-1] # 방금 계산된 최신 ATR 값 추출
+    return fig, latest_preds, X_live.index[-1], latest_close, latest_atr
 
 try:
-    fig, latest_preds, last_time, last_close = get_live_chart(chart_days)
+    fig, latest_preds, last_time, last_close, latest_atr = get_live_chart(chart_days)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("### 📊 실시간 AI 브리핑 패널")
@@ -175,7 +189,19 @@ try:
         pred_text = "상승 돌파 📈" if latest_preds[-1] == 2 else ("하락 이탈 📉" if latest_preds[-1] == 0 else "횡보 관망 ⏳")
         st.metric(label="🎯 현재 캔들 예측", value=pred_text)
     with col3:
-        st.metric(label="최근 5캔들 흐름 (0:하락, 1:횡보, 2:상승)", value=str(latest_preds))
+        st.metric(label="💲 현재가 (Close)", value=f"${last_close:,.2f}")
+
+    # --- ATR 기반 손익절 타겟 UI --- #
+    if latest_preds[-1] == 2:
+        sl_price = last_close - (1.5 * latest_atr)
+        tp_price = last_close + (3.0 * latest_atr)
+        st.success(f"🟢 **[Long 포지션 진입 시그널]** 익절가(TP): **${tp_price:,.2f}** 🎯 | 손절가(SL): **${sl_price:,.2f}** 🛡️ (1:2 ATR 전략)")
+    elif latest_preds[-1] == 0:
+        sl_price = last_close + (1.5 * latest_atr)
+        tp_price = last_close - (3.0 * latest_atr)
+        st.error(f"🔴 **[Short 포지션 진입 시그널]** 익절가(TP): **${tp_price:,.2f}** 🎯 | 손절가(SL): **${sl_price:,.2f}** 🛡️ (1:2 ATR 전략)")
+    else:
+        st.info("⏳ **[관망 시그널]** 현재는 시장의 방향성이 불명확하여 포지션 진입을 권장하지 않습니다.")
 
     st.markdown("---")
     col_log1, col_log2 = st.columns([4, 1])
@@ -185,7 +211,7 @@ try:
         if os.path.exists(LOG_FILE):
             full_df = pd.read_csv(LOG_FILE)
             csv_data = full_df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button(label="📥 전체 기록 다운로드 (포트폴리오용)", data=csv_data, file_name="TH_Chart_Prediction_History.csv", mime="text/csv")
+            st.download_button(label="📥 전체 기록 다운로드", data=csv_data, file_name="TH_Chart_Prediction_History.csv", mime="text/csv")
 
     history_df = update_prediction_log(last_time, last_close, latest_preds[-1])
     # 최신 기록이 맨 위로 오도록 역순 출력
