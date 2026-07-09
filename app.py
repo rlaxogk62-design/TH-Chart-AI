@@ -123,7 +123,12 @@ def get_live_chart(days_to_show):
                 'SMA_7', 'RSI_14', 'SMA_1H', 'SMA_4H', 'Vol_4H', 'SMA_24H', 'BB_Width']
     X_live = btc_df[features].copy()
 
-    model_xgb = joblib.load('./data/model/xgboost_btc_15m_3class_strict.pkl')
+    # 모델 경로 개선 (폴더 구조가 깨져도 루트에서 찾을 수 있도록 폴백 추가)
+    model_path = './data/model/xgboost_btc_15m_3class_strict.pkl'
+    if not os.path.exists(model_path):
+        model_path = 'xgboost_btc_15m_3class_strict.pkl'
+    model_xgb = joblib.load(model_path)
+    
     X_live['Pred'] = model_xgb.predict(X_live[features])
 
     data_points = min(len(X_live), days_to_show * 96) # 선택한 일수만큼 캔들 표시
@@ -171,7 +176,7 @@ try:
         st.metric(label="🎯 현재 캔들 예측", value=pred_text)
     with col3:
         st.metric(label="최근 5캔들 흐름 (0:하락, 1:횡보, 2:상승)", value=str(latest_preds))
-        
+
     st.markdown("---")
     col_log1, col_log2 = st.columns([4, 1])
     with col_log1:
